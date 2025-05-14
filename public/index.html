@@ -19,7 +19,7 @@
     form.addEventListener('submit', e => {
       e.preventDefault();
       const url = encodeURIComponent(e.target.url.value);
-      iframe.src = `/api/proxy.js?url=${url}`;
+      iframe.src = `/api/proxy?url=${url}`;
     });
   </script>
 </body>
