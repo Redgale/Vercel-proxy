@@ -8,18 +8,23 @@
 <body>
   <h1>Web Proxy</h1>
   <form id="proxy-form">
-    <input type="text" name="url" placeholder="Enter URL to proxy" style="width:80%;" required>
+    <input id="url-input" type="text" name="url" placeholder="Enter URL to proxy" style="width:80%;" required>
     <button type="submit">Go</button>
   </form>
   <iframe id="result" style="width:100%; height:80vh; border:none; margin-top:1em;"></iframe>
 
   <script>
-    const form = document.getElementById('proxy-form');
-    const iframe = document.getElementById('result');
-    form.addEventListener('submit', e => {
-      e.preventDefault();
-      const url = encodeURIComponent(e.target.url.value);
-      iframe.src = `/api/proxy?url=${url}`;
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('proxy-form');
+      const input = document.getElementById('url-input');
+      const iframe = document.getElementById('result');
+      form.addEventListener('submit', e => {
+        e.preventDefault();
+        const rawUrl = input.value.trim();
+        if (!rawUrl) return;
+        const encoded = encodeURIComponent(rawUrl);
+        iframe.src = `/api/proxy?url=${encoded}`;
+      });
     });
   </script>
 </body>
