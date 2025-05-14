@@ -8,35 +8,32 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 2rem; }
     input, button { padding: 0.5rem; font-size: 1rem; }
-    #urlInput { width: 80%; }
+    #urlInput { width: 70%; }
   </style>
 </head>
 <body>
   <h1>Unique Web Proxy</h1>
-  <form id="proxyForm">
-    <input id="urlInput" type="text" placeholder="Enter URL or search term" />
+  <form id="proxyForm" action="/proxy" method="get" target="proxyFrame">
+    <input id="urlInput" name="url" type="text" placeholder="Enter full URL or search term" />
     <button type="submit">Go</button>
   </form>
-  <iframe id="proxyFrame" style="width:100%; height:80vh; border:1px solid #ccc; margin-top:1rem;"></iframe>
+  <iframe name="proxyFrame" id="proxyFrame" style="width:100%; height:80vh; border:1px solid #ccc; margin-top:1rem;"></iframe>
 
   <script>
-    const form = document.getElementById('proxyForm');
+    const jsForm = document.getElementById('proxyForm');
     const input = document.getElementById('urlInput');
     const frame = document.getElementById('proxyFrame');
 
-    form.addEventListener('submit', e => {
-      e.preventDefault();
+    jsForm.addEventListener('submit', e => {
+      // JS fallback handles search terms
       const val = input.value.trim();
-      if (!val) return;
-      let url;
       try {
-        url = new URL(val).toString();
+        new URL(val);
       } catch {
-        // treat as search term
+        // Redirect search through /search endpoint
+        e.preventDefault();
         frame.src = `/search?q=${encodeURIComponent(val)}`;
-        return;
       }
-      frame.src = `/proxy?url=${encodeURIComponent(url)}`;
     });
   </script>
 </body>
