@@ -18,6 +18,17 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+// Enable CORS for all routes
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 // Serve static frontend
 app.use('/', express.static(path.join(__dirname, 'public')));
 
@@ -39,8 +50,18 @@ app.use('/proxy', (req, res, next) => {
     target,
     changeOrigin: true,
     onProxyReq: (proxyReq) => {
+      // Remove client cookies for privacy
       proxyReq.removeHeader('cookie');
     },
+    onProxyRes: (proxyRes, req, res) => {
+      // Overwrite CORS headers on the response from target
+      proxyRes.headers['access-control-allow-origin'] = '*';
+      proxyRes.headers['access-control-allow-methods'] = 'GET,PUT,POST,DELETE,OPTIONS';
+      proxyRes.headers['access-control-allow-headers'] = 'Origin, X-Requested-With, Content-Type, Accept, Authorization';
+      // Remove security headers that may block rendering
+      delete proxyRes.headers['content-security-policy'];
+    },
+    selfHandleResponse: false,
     onError: (err, req, res) => {
       res.status(500).send(`Proxy error: ${err.message}`);
     }
