@@ -11,37 +11,30 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet());
 app.disable('x-powered-by');
 
-// Rate limiting to prevent abuse
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,                // limit each IP to 100 requests per window
-});
+// Rate limiting
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 app.use(limiter);
 
 // Enable CORS for all routes
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(204);
-  }
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
 
 // Serve static frontend
 app.use('/', express.static(path.join(__dirname, 'public')));
 
-// Proxy endpoint: /proxy?url=<target>
+// Proxy endpoint
 app.use('/proxy', (req, res, next) => {
   const target = req.query.url;
   if (!target) return res.status(400).send('No target URL specified.');
 
   try {
     const urlObj = new URL(target);
-    if (!['http:', 'https:'].includes(urlObj.protocol)) {
-      return res.status(400).send('Invalid URL scheme.');
-    }
+    if (!['http:', 'https:'].includes(urlObj.protocol)) return res.status(400).send('Invalid URL scheme.');
   } catch {
     return res.status(400).send('Malformed URL.');
   }
@@ -49,26 +42,18 @@ app.use('/proxy', (req, res, next) => {
   createProxyMiddleware({
     target,
     changeOrigin: true,
-    onProxyReq: (proxyReq) => {
-      // Remove client cookies for privacy
-      proxyReq.removeHeader('cookie');
-    },
-    onProxyRes: (proxyRes, req, res) => {
-      // Overwrite CORS headers on the response from target
+    onProxyReq: proxyReq => proxyReq.removeHeader('cookie'),
+    onProxyRes: (proxyRes) => {
       proxyRes.headers['access-control-allow-origin'] = '*';
-      proxyRes.headers['access-control-allow-methods'] = 'GET,PUT,POST,DELETE,OPTIONS';
+      proxyRes.headers['access-control-allow-methods'] = 'GET,POST,PUT,DELETE,OPTIONS';
       proxyRes.headers['access-control-allow-headers'] = 'Origin, X-Requested-With, Content-Type, Accept, Authorization';
-      // Remove security headers that may block rendering
       delete proxyRes.headers['content-security-policy'];
     },
-    selfHandleResponse: false,
-    onError: (err, req, res) => {
-      res.status(500).send(`Proxy error: ${err.message}`);
-    }
+    onError: (err, req, res) => res.status(500).send(`Proxy error: ${err.message}`)
   })(req, res, next);
 });
 
-// Search endpoint: /search?q=<query>
+// Search endpoint
 app.get('/search', (req, res) => {
   const q = req.query.q;
   if (!q) return res.redirect('/');
@@ -76,6 +61,4 @@ app.get('/search', (req, res) => {
   res.redirect(`/proxy?url=${encodeURIComponent(googleUrl)}`);
 });
 
-app.listen(PORT, () => {
-  console.log(`Proxy server listening on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Proxy server listening on port ${PORT}`));
