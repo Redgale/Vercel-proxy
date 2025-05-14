@@ -1,64 +1,36 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simple Web Proxy</title>
-</head>
-<body>
-  <h1>Web Proxy</h1>
-  <form id="proxy-form">
-    <input id="url-input" type="url" name="url" placeholder="Enter URL to proxy" style="width:80%;" required>
-    <button type="submit">Go</button>
-  </form>
-  <iframe id="result" style="width:100%; height:80vh; border:none; margin-top:1em;"></iframe>
+// Enhanced proxy handler with error logging and buffer-based response
+export default async function handler(req, res) {
+  const target = req.query.url;
+  if (!target) {
+    return res.status(400).json({ error: 'Missing `url` parameter' });
+  }
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const form = document.getElementById('proxy-form');
-      const input = document.getElementById('url-input');
-      const iframe = document.getElementById('result');
-      form.addEventListener('submit', e => {
-        e.preventDefault();
-        const rawUrl = input.value.trim();
-        if (!rawUrl) return;
-        // Use URLSearchParams to build query string
-        const params = new URLSearchParams({ url: rawUrl });
-        iframe.src = `/api/proxy?${params.toString()}`;
-      });
+  try {
+    console.log(`Proxying request to: ${target}`);
+    const upstream = await fetch(target, {
+      method: req.method,
+      headers: {
+        'user-agent': req.headers['user-agent'] || ''
+      },
+      body: ['GET', 'HEAD'].includes(req.method) ? null : req.body
     });
-  </script>
-</body>
-</html>
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simple Web Proxy</title>
-</head>
-<body>
-  <h1>Web Proxy</h1>
-  <form id="proxy-form">
-    <input id="url-input" type="text" name="url" placeholder="Enter URL to proxy" style="width:80%;" required>
-    <button type="submit">Go</button>
-  </form>
-  <iframe id="result" style="width:100%; height:80vh; border:none; margin-top:1em;"></iframe>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const form = document.getElementById('proxy-form');
-      const input = document.getElementById('url-input');
-      const iframe = document.getElementById('result');
-      form.addEventListener('submit', e => {
-        e.preventDefault();
-        const rawUrl = input.value.trim();
-        if (!rawUrl) return;
-        const encoded = encodeURIComponent(rawUrl);
-        iframe.src = `/api/proxy?url=${encoded}`;
-      });
+    // Copy status and essential headers
+    res.status(upstream.status);
+    upstream.headers.forEach((value, name) => {
+      // Skip transfer-encoding to let Vercel manage it
+      if (name.toLowerCase() !== 'transfer-encoding') {
+        res.setHeader(name, value);
+      }
     });
-  </script>
-</body>
-</html>
+
+    // Read the full response into a buffer and send
+    const arrayBuffer = await upstream.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    console.log(`Responding with ${buffer.length} bytes`);
+    res.send(buffer);
+  } catch (err) {
+    console.error('Proxy function error:', err);
+    res.status(500).json({ error: err.message, stack: err.stack });
+  }
+}
